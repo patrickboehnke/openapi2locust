@@ -2,6 +2,9 @@
 
 🚀 **Generate Locust load testing scripts from OpenAPI 3.0 specifications**
 
+> **⚠️ EXPERIMENTAL PROJECT**  
+> This project is currently in experimental/development phase. While it implements security best practices and comprehensive testing, it has not been extensively tested in production environments. Use with caution in critical systems and please report any issues you encounter.
+
 OpenAPI2Locust is a powerful Python tool that automatically converts OpenAPI 3.0 specifications into ready-to-use [Locust](https://locust.io/) load testing scripts. It handles authentication, request generation, and response validation while following security best practices.
 
 ## ✨ Features
