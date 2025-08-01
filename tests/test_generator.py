@@ -322,15 +322,14 @@ class TestLocustGenerator:
         assert 200 in result
     
     @patch('openapi2locust.generator.LocustGenerator._build_template_context')
-    @patch('openapi2locust.generator.LocustGenerator.parser')
-    def test_generate_template_render_error(self, mock_parser, mock_context):
+    def test_generate_template_render_error(self, mock_context):
         """Test generation handles template rendering errors."""
         generator = LocustGenerator(str(self.spec_file), str(self.temp_path))
         
-        # Mock parser methods
-        mock_parser.parse.return_value = self.valid_spec
-        mock_parser.security_schemes = {}
-        mock_parser.get_endpoints.return_value = []
+        # Mock parser methods directly on the instance
+        generator.parser.parse = Mock(return_value=self.valid_spec)
+        generator.parser.security_schemes = {}
+        generator.parser.get_endpoints = Mock(return_value=[])
         
         # Mock context to cause template error
         mock_context.return_value = {"invalid": object()}  # Non-serializable object

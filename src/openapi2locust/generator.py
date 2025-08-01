@@ -63,6 +63,8 @@ class LocustGenerator:
                 self.output_dir.mkdir(parents=True, exist_ok=True)
             except OSError as e:
                 raise LocustGeneratorError(f"Cannot create output directory: {e}")
+        elif self.output_dir.is_file():
+            raise LocustGeneratorError(f"Cannot create output directory: {self.output_dir} is a file")
         
         # Setup Jinja2 environment
         template_dir = Path(__file__).parent / "templates"
@@ -169,7 +171,7 @@ class LocustGenerator:
             request_body = self._process_request_body(endpoint)
             
             # Process authentication
-            auth_params = self.auth_handler.get_request_auth_params(endpoint.get("security", []))
+            auth_params = self.auth_handler.get_request_auth_params(endpoint.get("security", [])) if self.auth_handler else {}
             
             # Generate response validation
             response_validation = self._generate_response_validation(endpoint)
@@ -204,10 +206,29 @@ class LocustGenerator:
     
     def _generate_class_name(self, title: str) -> str:
         """Generate a valid Python class name from API title."""
+        # HTML escape the input first to handle malicious content
+        safe_title = html.escape(title)
+        
+        # Check if HTML escaping occurred (indicates malicious input)
+        if '&lt;' in safe_title or '&gt;' in safe_title or '&amp;' in safe_title:
+            # Remove HTML entirely for malicious input to prevent script injection
+            clean_title = re.sub(r'&[a-zA-Z0-9#]+;', '', safe_title)
+        else:
+            clean_title = safe_title
+            
         # Remove special characters and convert to PascalCase
-        clean_title = self._SPECIAL_CHARS_PATTERN.sub('', title)
+        clean_title = self._SPECIAL_CHARS_PATTERN.sub('', clean_title)
         words = clean_title.split()
-        class_name = ''.join(word.capitalize() for word in words if word)
+        
+        # Special handling for "API" to keep it uppercase
+        pascal_words = []
+        for word in words:
+            if word.lower() == 'api':
+                pascal_words.append('API')
+            else:
+                pascal_words.append(word.capitalize())
+        
+        class_name = ''.join(pascal_words)
         
         if not class_name:
             class_name = "APIUser"
@@ -354,12 +375,21 @@ class LocustGenerator:
         if not filename:
             raise InvalidFilenameError("Filename cannot be empty")
         
+        # Check for dangerous patterns before cleaning
+        if '..' in filename or '/' in filename or '\\' in filename:
+            raise InvalidFilenameError(f"Invalid filename pattern: {filename}")
+        
         # Remove any path separators and parent directory references
         clean_filename = Path(filename).name
         
-        # Check for dangerous patterns
-        if '..' in clean_filename or clean_filename.startswith('.'):
+        # Check for dangerous patterns after cleaning
+        if clean_filename.startswith('.'):
             raise InvalidFilenameError(f"Invalid filename pattern: {filename}")
+        
+        # Check for invalid characters that could cause issues
+        invalid_chars = '<>"|?*'
+        if any(char in clean_filename for char in invalid_chars):
+            raise InvalidFilenameError(f"Invalid filename characters: {clean_filename}")
         
         # Ensure it's a Python file
         if not clean_filename.endswith('.py'):
