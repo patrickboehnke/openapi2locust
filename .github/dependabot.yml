@@ -1,0 +1,27 @@
+version: 2
+updates:
+  # Enable version updates for Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # Group all patch updates together
+    groups:
+      patch-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+    # Allow up to 10 open pull requests
+    open-pull-requests-limit: 10
+    # Add reviewers (optional - remove if not needed)
+    # reviewers:
+    #   - "username"
+    # Add assignees (optional - remove if not needed)  
+    # assignees:
+    #   - "username"
+    # Commit message preferences
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
