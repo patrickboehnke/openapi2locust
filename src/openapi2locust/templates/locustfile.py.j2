@@ -1,0 +1,141 @@
+"""Generated Locust test file from OpenAPI specification.
+
+{{ auth_comments | join('\n') }}
+"""
+
+import os
+import json
+import random
+import logging
+from locust import HttpUser, task, between
+{% for import in additional_imports %}
+{{ import }}
+{% endfor %}
+
+
+class {{ class_name }}(HttpUser):
+    """{{ class_description }}"""
+    
+    wait_time = between({{ min_wait }}, {{ max_wait }})
+    host = "{{ base_url }}"
+    
+    def on_start(self):
+        """Setup authentication and initial data."""
+        # Setup logging
+        self.logger = logging.getLogger(self.__class__.__name__)
+        
+        {{ auth_setup_code | indent(8) }}
+        
+        # Initialize test data
+        self._setup_test_data()
+    
+    def _setup_test_data(self):
+        """Initialize common test data used across requests."""
+        {% for var_name, var_value in test_data_vars.items() %}
+        self.{{ var_name }} = {{ var_value | tojson }}
+        {% endfor %}
+    
+    {% for endpoint in endpoints %}
+    @task({{ endpoint.weight }})
+    def {{ endpoint.task_name }}(self):
+        """{{ endpoint.description }}"""
+        # Path parameters
+        {% if endpoint.path_params %}
+        path_params = {
+            {% for param_name, param_generator in endpoint.path_params.items() %}
+            "{{ param_name }}": {{ param_generator }},
+            {% endfor %}
+        }
+        url = "{{ endpoint.path }}".format(**path_params)
+        {% else %}
+        url = "{{ endpoint.path }}"
+        {% endif %}
+        
+        # Query parameters
+        {% if endpoint.query_params %}
+        params = {
+            {% for param_name, param_generator in endpoint.query_params.items() %}
+            "{{ param_name }}": {{ param_generator }},
+            {% endfor %}
+        }
+        {% else %}
+        params = {}
+        {% endif %}
+        
+        # Headers{% if include_security_headers %} (including security headers){% endif %}
+        headers = {
+            {% for header_name, header_value in endpoint.headers.items() %}
+            "{{ header_name }}": {{ header_value }},
+            {% endfor %}
+            {% if include_security_headers %}
+            {% for security_header, security_value in security_headers.items() %}
+            "{{ security_header }}": "{{ security_value }}",
+            {% endfor %}
+            {% endif %}
+        }
+        
+        {% if endpoint.auth_params %}
+        # Authentication query parameters
+        params.update({
+            {% for param_name, param_value in endpoint.auth_params.items() %}
+            "{{ param_name }}": {{ param_value }},
+            {% endfor %}
+        })
+        {% endif %}
+        
+        # Request body
+        {% if endpoint.request_body %}
+        data = {{ endpoint.request_body | tojson }}
+        
+        response = self.client.{{ endpoint.method.lower() }}(
+            url,
+            params=params,
+            headers=headers,
+            json=data,
+            name="{{ endpoint.name }}"
+        )
+        {% else %}
+        response = self.client.{{ endpoint.method.lower() }}(
+            url,
+            params=params,
+            headers=headers,
+            name="{{ endpoint.name }}"
+        )
+        {% endif %}
+        
+        # Response validation
+        if response.status_code in {{ endpoint.expected_status_codes }}:
+            {% if endpoint.response_validation %}
+            try:
+                response_data = response.json()
+                {{ endpoint.response_validation | indent(16) }}
+            except (ValueError, KeyError) as e:
+                self.logger.warning(f"Response validation failed for {{ endpoint.name }}: {e}")
+            {% endif %}
+        else:
+            self.logger.error(f"Unexpected status code {{ '{' }}response.status_code{{ '}' }} for {{ endpoint.name }}")
+    
+    {% endfor %}
+    {% if include_test_data_helpers %}
+    
+    def _generate_random_string(self, length=10):
+        """Generate a random string of specified length."""
+        import string
+        return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+    
+    def _generate_random_int(self, min_val=1, max_val=1000):
+        """Generate a random integer within specified range."""
+        return random.randint(min_val, max_val)
+    
+    def _generate_random_email(self):
+        """Generate a random email address."""
+        domains = ["example.com", "test.org", "demo.net"]
+        username = self._generate_random_string(8).lower()
+        domain = random.choice(domains)
+        return f"{username}@{domain}"
+    {% endif %}
+
+
+if __name__ == "__main__":
+    # Run with: locust -f {{ filename }}
+    pass
